@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Vols autour d'un point GPS (OpenSky)</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        input { margin: 5px; padding: 5px; }
+        button { padding: 6px 12px; }
+    </style>
+</head>
+<body>
+
+<h2>Vols dans un rayon de 20 km</h2>
+
+<label>Latitude:
+    <input type="number" id="lat" step="0.0001" value="48.8566">
+</label>
+<label>Longitude:
+    <input type="number" id="lon" step="0.0001" value="2.3522">
+</label>
+<button onclick="fetchFlights()">Rechercher</button>
+
+<table>
+    <thead>
+        <tr>
+            <th>Indicatif</th>
+            <th>Immatriculation (ICAO24)</th>
+            <th>Pays</th>
+            <th>Altitude (m)</th>
+            <th>Vitesse (m/s)</th>
+            <th>Position</th>
+        </tr>
+    </thead>
+    <tbody id="results"></tbody>
+</table>
+
+<script>
+function kmToDegreesLat(km) {
+    return km / 111;
+}
+
+function kmToDegreesLon(km, lat) {
+    return km / (111 * Math.cos(lat * Math.PI / 180));
+}
+
+async function fetchFlights() {
+    const lat = parseFloat(document.getElementById("lat").value);
+    const lon = parseFloat(document.getElementById("lon").value);
+    const radiusKm = 20;
+
+    const latDelta = kmToDegreesLat(radiusKm);
+    const lonDelta = kmToDegreesLon(radiusKm, lat);
+
+    const lamin = lat - latDelta;
+    const lamax = lat + latDelta;
+    const lomin = lon - lonDelta;
+    const lomax = lon + lonDelta;
+
+    const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const tbody = document.getElementById("results");
+        tbody.innerHTML = "";
+
+        if (!data.states) {
+            tbody.innerHTML = "<tr><td colspan='6'>Aucun vol détecté</td></tr>";
+            return;
+        }
+
+        data.states.forEach(state => {
+            const row = `
+                <tr>
+                    <td>${state[1] ? state[1].trim() : ""}</td>
+                    <td>${state[0]}</td>
+                    <td>${state[2]}</td>
+                    <td>${state[7] ?? ""}</td>
+                    <td>${state[9] ?? ""}</td>
+                    <td>${state[6]}, ${state[5]}</td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+
+    } catch (error) {
+        console.error("Erreur API :", error);
+        alert("Erreur lors de la récupération des données.");
+    }
+}
+</script>
+
+</body>
+</html>
